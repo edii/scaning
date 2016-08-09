@@ -1,0 +1,9 @@
+/mail/
+/postgres/
+/rabbitmq/
+/tmp/
+/redis/
+.idea
+.jscsrc
+docker-compose.yml
+/redis/data/appendonly.aof

@@ -1,0 +1,98 @@
+version: '2'
+services:
+  web:
+    build:
+      context: ./Docker/init/
+      dockerfile: Dockerfile.yml
+      args:
+        - PROJECT_NAME=Scandir
+        - php=56
+        - UID={{ UID_VALUE }}
+        - GID={{ GID_VALUE }}
+        - NODE=4.4.3
+    restart: always
+    stdin_open: true
+    tty: true
+    container_name: scandir_web
+    ports:
+      - "127.1.1.2:80:80"
+      - "127.1.1.2:443:443"
+      - "127.1.1.2:9000:9000"
+      - "4444:22"
+    links:
+      - postgres:postgres
+      - redis:redis
+      - rabbitmq:rabbitmq
+    volumes:
+      # system
+      - ./projects:/var/www:rw
+      - ./tmp:/var/www/tmp:rw
+      - ./Docker/config/custom.sh:/scripts/custom.sh:rw
+      - ./Docker/config/docker.conf:/etc/nginx/conf.d/docker.conf:rw
+      - ./Docker/config/.ssh:/root/.ssh:rw
+    extra_hosts:
+      - "scandir.dev:127.1.1.2"
+    dns:
+      - 8.8.8.8
+      - 192.168.70.217
+    depends_on:
+      - redis
+      - rabbitmq
+    environment:
+      - COMPOSE_PROJECT_NAME=scandir
+      - DEBUG=true
+      - RACK_ENV=development
+      - SHOW=true
+
+  # phpmyadmin
+  phppgadmin:
+    image: maxexcloo/phppgadmin
+    container_name: scandir_phppgadmin
+    links:
+      - postgres:postgresql
+    ports:
+      - "127.1.1.2:8081:80"
+    expose:
+      - "8081"
+
+  # postgres
+  postgres:
+    restart: always
+    image: postgres:latest
+    container_name: scandir_postgres
+    ports:
+      - "127.1.1.2:5433:5433"
+    expose:
+      - "5433"
+    volumes:
+      - ./postgres/pdata:/pdata
+      - ./postgres/logs:/var/log/postgresql
+    environment:
+      LC_ALL: C.UTF-8
+      POSTGRES_USER: docker-data
+      POSTGRES_PASSWORD: root
+      PGDATA: "/pdata"
+
+  # others
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: scandir_rabbit
+    ports:
+      - "127.1.1.2:5672:5672"
+      - "127.1.1.2:15672:15672"
+    volumes:
+      - ./rabbitmq/data:/var/lib/rabbitmq/mnesia
+      - ./rabbitmq/log:/var/log/rabbitmq
+    environment:
+      - HOSTNAME=rabbitmq
+
+  # redis
+  redis:
+    image: redis
+    container_name: scandir_redis
+    volumes:
+      - ./Docker/config/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis/data:/data
+    ports:
+      - "127.1.1.2:6379:6379"
+    command: ["redis-server","--appendonly yes"]
